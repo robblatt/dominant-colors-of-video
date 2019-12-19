@@ -9,11 +9,15 @@ import os
 import shutil
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+import math
 
 print('Video file:')
 user_input_file_name = input()
 
-def dom_avg_video(file_name):
+print('Number of colors to include in gif palatte:')
+user_input_colors_for_palatte = input()
+
+def dom_avg_video(file_name, total_colors):
     path = "images/vid_cap/"
     try:
         os.makedirs(path)
@@ -41,6 +45,8 @@ def dom_avg_video(file_name):
 
     cap.release()
     cv2.destroyAllWindows()
+    
+    save_path = 'output/' + file_name.split('/')[-1].split('.')[0]
 
     frame_path = "images/vid_frame/"
     try:
@@ -57,16 +63,16 @@ def dom_avg_video(file_name):
     dominant_colors = {}
     average_colors = {}
 
-    filelist = glob.glob(path + '*.png')
+    filelist = sorted(glob.glob(path + '*.png'))
 
     j = 0
 
-    for filepath in tqdm(sorted(filelist)):
+    for filepath in tqdm(filelist):
         img = io.imread(filepath) #[:, :, :-1]
 
         pixels = np.float32(img.reshape(-1, 3))
 
-        n_colors = 5
+        n_colors = int(total_colors)
         criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 200, .1)
         flags = cv2.KMEANS_RANDOM_CENTERS
 
@@ -92,18 +98,12 @@ def dom_avg_video(file_name):
 
         fig, (ax0) = plt.subplots(1, 1, figsize=(5,5))
         ax0.imshow(dom_patch)
-        ax0.set_title('Dominant colors')
+        ax0.set_title('Dominant colors of frame ' + filepath.split('/')[-1].split('.')[0])
         ax0.axis('off')
-        ax0.text(0,660,'Frame ' + filepath)
 
-        if j < 10:
-            fig.savefig(frame_path + 'dom_colors_pyplot_000' + str(j) + '.png')
-        elif j < 100:
-            fig.savefig(frame_path + 'dom_colors_pyplot_00' + str(j) + '.png')
-        elif j < 1000:
-            fig.savefig(frame_path + 'dom_colors_pyplot_0' + str(j) + '.png')
-        else:
-            fig.savefig(frame_path + 'dom_colors_pyplot_' + str(j) + '.png')
+        available_length = len(str(len(filelist))) - len(str(j))
+        fig.savefig(frame_path + 'dom_colors_pyplot_' + str(available_length * '0') + str(j) + '.png')
+        
         j += 1
 
         plt.close()
@@ -115,7 +115,7 @@ def dom_avg_video(file_name):
     images = []
     for filename in filenames:
         images.append(imageio.imread(filename))
-    imageio.mimsave(file_name[:-4] + '_palattes.gif', images)
+    imageio.mimsave(save_path + '_palattes.gif', images)
 
     df_d = pd.DataFrame.from_dict(dominant_colors).transpose()
     df_a = pd.DataFrame.from_dict(average_colors).transpose()
@@ -136,8 +136,8 @@ def dom_avg_video(file_name):
 
     print('writing dominant and average color charts')
     
-    width = 720
-    height = int(((len(df_d) / width) * 10 ) * 10) + 10
+    width = 500
+    height = math.ceil((len(df_d) / width) * 10 ) * 10
 
     im = Image.new('RGB', (width,height))
 
@@ -150,10 +150,7 @@ def dom_avg_video(file_name):
                 colors = (df_d[0][i], df_d[1][i], df_d[2][i])
                 im.putpixel((x,(k + (y * 10))), colors)
 
-    im.save(file_name[:-4] + '_dom_color.png')
-
-    width = 720
-    height = int(((len(df_a) / width) * 10 ) * 10) + 10
+    im.save(save_path + '_dom_color.png')
 
     im = Image.new('RGB', (width,height))
 
@@ -166,8 +163,8 @@ def dom_avg_video(file_name):
                 colors = (df_a[0][i], df_a[1][i], df_a[2][i])
                 im.putpixel((x,(k + (y * 10))), colors)
 
-    im.save(file_name[:-4] + '_avg_color.png')
+    im.save(save_path + '_avg_color.png')
     
     print('Complete')
 
-dom_avg_video(user_input_file_name)
+dom_avg_video(user_input_file_name, user_input_colors_for_palatte)
